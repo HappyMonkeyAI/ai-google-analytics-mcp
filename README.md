@@ -17,7 +17,21 @@ For **reporting and monitoring**, use Google's official read-only [`analytics-mc
 | `render_ga4_nextjs_component` | Next.js `GoogleAnalytics.tsx` source (env or inline id) |
 | `scaffold_ga4_nextjs_tracking` | Write component, wire `layout.tsx`, set `.env.local` |
 | `save_project_ga4_config` | Write `.ga4.config.json` in a project dir |
-| `provision_project_ga4_setup` | Property + stream + optional config/inject |
+| `provision_project_ga4_setup` | Property + stream + optional config/inject (+ optional `registry_slug`) |
+| `get_ga4_integration_status` | Whether launcher/keymaster hooks are configured |
+| `list_registry_projects_for_ga4` | Registry projects + `.ga4.config.json` / `.keymaster` hints |
+| `resolve_project_for_ga4` | Slug and/or path → website_url, web roots, agent hints |
+| `sync_ga4_to_launcher_registry` | Write `analytics.ga4` on registry row (opt-in write) |
+
+### Optional: launcher registry & keymaster
+
+Public-repo safe: **no hardcoded paths**, no imports from sibling repos. Set env on your MCP host only if you use these services:
+
+- `GA4_LAUNCHER_REGISTRY_JSON` — read launcher `registry.json` (same format as launcher-project-registry)
+- `GA4_LAUNCHER_REGISTRY_WRITABLE=true` — allow `sync_ga4_to_launcher_registry` / `registry_slug` on provision
+- `GA4_KEYMASTER_DATABASE` or `GA4_KEYMASTER_HINTS=true` — status hints only; **secrets stay in keymaster MCP** (`keymaster_register_key` for GA service accounts). Measurement IDs remain in `.ga4.config.json`.
+
+See `docs/adr/0003-optional-registry-keymaster-hooks.md`.
 
 ## Quick start
 

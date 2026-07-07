@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp import FastMCP
 
 from ga4_provision_mcp import admin as ga_admin
+from ga4_provision_mcp import integrations as ga_integrations
 from ga4_provision_mcp import nextjs as ga_nextjs
 from ga4_provision_mcp.snippets import inject_gtag_into_html, render_gtag_snippet
 
@@ -250,9 +251,11 @@ def provision_project_ga4_setup(
     project_dir: str = "",
     timezone: str = "Europe/London",
     inject_html_path: str = "",
+    registry_slug: str = "",
 ) -> Dict[str, Any]:
     """
     End-to-end: create property + web stream, optionally save .ga4.config.json and inject gtag.
+    If registry_slug is set and GA4_LAUNCHER_REGISTRY_* env is configured, syncs analytics.ga4 metadata.
     """
     prop = provision_ga4_property(account_id, project_name, timezone=timezone)
     if not prop.get("ok"):
@@ -283,7 +286,51 @@ def provision_project_ga4_setup(
         result["config_file"] = saved
     if inject_html_path.strip() and measurement_id:
         result["injection"] = inject_ga4_gtag_into_file(inject_html_path, measurement_id)
+    if registry_slug.strip() and measurement_id:
+        result["registry_sync"] = ga_integrations.sync_ga4_to_launcher_registry(
+            registry_slug.strip(),
+            measurement_id,
+            prop["property_id"],
+            website_url=website_url,
+            stream_name=stream_name,
+        )
     return result
+
+
+@mcp.tool()
+def get_ga4_integration_status() -> Dict[str, Any]:
+    """Report optional launcher registry and keymaster hook availability (graceful when unset)."""
+    return ga_integrations.integration_status()
+
+
+@mcp.tool()
+def list_registry_projects_for_ga4(filter_query: str = "", limit: int = 50) -> Dict[str, Any]:
+    """List launcher registry projects with .ga4.config.json and .keymaster hints when registry env is set."""
+    return ga_integrations.list_launcher_projects(filter_query=filter_query, limit=limit)
+
+
+@mcp.tool()
+def resolve_project_for_ga4(slug: str = "", project_dir: str = "") -> Dict[str, Any]:
+    """Resolve registry slug and/or filesystem path for GA4 provisioning (paths, website_url, agent hints)."""
+    return ga_integrations.resolve_project_for_ga4(slug=slug, project_dir=project_dir)
+
+
+@mcp.tool()
+def sync_ga4_to_launcher_registry(
+    slug: str,
+    measurement_id: str,
+    property_id: str,
+    website_url: str = "",
+    stream_name: str = "",
+) -> Dict[str, Any]:
+    """Write GA4 metadata to launcher registry project.analytics.ga4 (requires writable env)."""
+    return ga_integrations.sync_ga4_to_launcher_registry(
+        slug,
+        measurement_id,
+        property_id,
+        website_url=website_url,
+        stream_name=stream_name,
+    )
 
 
 @mcp.resource("ga4://workflow")
