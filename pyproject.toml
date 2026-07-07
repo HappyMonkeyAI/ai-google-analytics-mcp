@@ -1,0 +1,33 @@
+[project]
+name = "ai-google-analytics-mcp"
+version = "0.1.0"
+description = "GA4 provisioning MCP: create properties/streams, inject gtag into local projects; pairs with read-only analytics-mcp for reporting"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Stephen Phillips", email = "stephenphillips.work@gmail.com" },
+]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "google-analytics-admin>=0.30.0",
+]
+
+[project.scripts]
+ga4-provision-mcp = "ga4_provision_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "fastmcp>=2.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ga4_provision_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
