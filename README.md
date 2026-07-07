@@ -44,7 +44,9 @@ uv run ga4-provision-mcp
 
 ### Authentication
 
-If `gcloud auth application-default login` shows **"This app is blocked"**, use a **service account** (recommended): see `research/notes/gcloud-this-app-is-blocked.md`.
+**Full walkthrough:** [Google Analytics GA4 Service Account Setup Guide](google-analytics-ga4-service-account-setup-guide.md) — GCP project, enable Admin (and optional Data) API, create a service account, grant GA account access, and point `GOOGLE_APPLICATION_CREDENTIALS` at the JSON key.
+
+If `gcloud auth application-default login` shows **"This app is blocked"**, use a **service account** (recommended): see also `research/notes/gcloud-this-app-is-blocked.md`.
 
 ```bash
 # After SA JSON is on disk and SA email has Editor on your GA account:
@@ -85,6 +87,7 @@ The agent calls `provision_project_ga4_setup` with `project_dir` and `inject_htm
 
 ## Docs
 
+- [google-analytics-ga4-service-account-setup-guide.md](google-analytics-ga4-service-account-setup-guide.md) — step-by-step Google Cloud + GA4 + service account setup
 - `CONTEXT.md` — rules and architecture
 - `HERMES.md` — agent smoke + guardrails
 - `docs/adr/` — durable decisions
