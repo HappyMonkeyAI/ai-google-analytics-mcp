@@ -301,7 +301,6 @@ def keymaster_bootstrap_at(project_dir: str | Path) -> Dict[str, Any]:
         "available": True,
         "path": str(key_file),
         "project_slug": data.get("project_slug"),
-        "client_id": data.get("client_id"),
         "message": "Use keymaster MCP in the agent session for secret storage; GA4 measurement ids stay in .ga4.config.json.",
     }
 

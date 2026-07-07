@@ -73,6 +73,7 @@ Do not implement full reporting here; document and configure the companion serve
 | `src/ga4_provision_mcp/snippets.py` | gtag HTML |
 | `src/ga4_provision_mcp/nextjs.py` | Next.js component + scaffold |
 | `src/ga4_provision_mcp/integrations.py` | Optional launcher registry + keymaster hints |
+| `src/ga4_provision_mcp/inventory.py` | Local scan + registry gap + stack detection |
 | `scripts/scan_ga4_project_configs.py` | Inventory scan |
 | `tests/` | unit tests (mocked Admin API) |
 | `docs/adr/` | decisions |
