@@ -87,6 +87,7 @@ The agent calls `provision_project_ga4_setup` with `project_dir` and `inject_htm
 
 ## Docs
 
+- [SECURITY.md](SECURITY.md) — transport (stdio), trust model, credentials, safe deployment
 - [google-analytics-ga4-service-account-setup-guide.md](google-analytics-ga4-service-account-setup-guide.md) — step-by-step Google Cloud + GA4 + service account setup
 - `CONTEXT.md` — rules and architecture
 - `HERMES.md` — agent smoke + guardrails
