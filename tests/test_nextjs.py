@@ -64,3 +64,34 @@ def test_scaffold_nextjs_dry_run(tmp_path):
     assert result["layout_action"] == "added_import+injected_after_body"
     assert result["dry_run"] is True
     assert not (web / "src" / "components" / "GoogleAnalytics.tsx").exists()
+
+
+def test_scaffold_nextjs_root_app_layout_uses_valid_relative_import(tmp_path):
+    web = tmp_path / "web"
+    (web / "app").mkdir(parents=True)
+    (web / "package.json").write_text("{}", encoding="utf-8")
+    (web / "app" / "layout.tsx").write_text(
+        "export default function RootLayout({ children }: { children: React.ReactNode }) {\n"
+        "  return <html><body>{children}</body></html>;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = scaffold_nextjs_ga4(str(web), "G-SCAFFOLD1", layout_relative="app/layout.tsx")
+
+    layout = (web / "app" / "layout.tsx").read_text(encoding="utf-8")
+    assert result["import_path"] == "../components/GoogleAnalytics"
+    assert 'from "../components/GoogleAnalytics"' in layout
+
+
+def test_inject_layout_ignores_google_analytics_comment_when_adding_import():
+    layout = (
+        "// GoogleAnalytics is not wired yet\n"
+        "export default function RootLayout({ children }: { children: React.ReactNode }) {\n"
+        "  return <html><body>{children}</body></html>;\n"
+        "}\n"
+    )
+    out, action = inject_google_analytics_into_layout(layout)
+    assert 'import { GoogleAnalytics } from "@/components/GoogleAnalytics";' in out
+    assert "<GoogleAnalytics />" in out
+    assert action == "prepended_import+injected_after_body"

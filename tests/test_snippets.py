@@ -20,3 +20,17 @@ def test_dry_run_unchanged_same_id():
     out, action = inject_gtag_into_html(html, "G-SAME1234")
     assert action == "unchanged_same_id"
     assert out == html
+
+
+def test_update_existing_gtag_does_not_replace_unrelated_ga_ids():
+    html = (
+        "<html><head>"
+        '<script async src="https://www.googletagmanager.com/gtag/js?id=G-OLD1234"></script>'
+        "<script>gtag('config', 'G-OLD1234');</script>"
+        "</head><body><!-- docs mention G-KEEP9999 --></body></html>"
+    )
+    out, action = inject_gtag_into_html(html, "G-NEW5678")
+    assert action == "updated_existing_gtag"
+    assert "G-NEW5678" in out
+    assert "G-OLD1234" not in out
+    assert "G-KEEP9999" in out

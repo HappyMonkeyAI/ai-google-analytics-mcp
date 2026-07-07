@@ -17,7 +17,11 @@ For **reporting and monitoring**, use Google's official read-only [`analytics-mc
 | `render_ga4_nextjs_component` | Next.js `GoogleAnalytics.tsx` source (env or inline id) |
 | `scaffold_ga4_nextjs_tracking` | Write component, wire `layout.tsx`, set `.env.local` |
 | `save_project_ga4_config` | Write `.ga4.config.json` in a project dir |
-| `provision_project_ga4_setup` | Property + stream + optional config/inject (+ optional `registry_slug`) |
+| `provision_project_ga4_setup` | Property + stream + optional config/inject (+ optional `registry_slug`, `tracking_mode`) |
+| `scan_local_ga4_configs` | Filesystem inventory of `.ga4.config.json` under scan roots |
+| `list_projects_needing_ga4` | Registry projects missing GA4 config/metadata |
+| `detect_project_tracking_stack` | Recommend html vs nextjs wiring for a repo |
+| `get_analytics_monitoring_companion_guide` | Pair with official read-only `analytics-mcp` |
 | `get_ga4_integration_status` | Whether launcher/keymaster hooks are configured |
 | `list_registry_projects_for_ga4` | Registry projects + `.ga4.config.json` / `.keymaster` hints |
 | `resolve_project_for_ga4` | Slug and/or path → website_url, web roots, agent hints |

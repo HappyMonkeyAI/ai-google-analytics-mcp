@@ -87,4 +87,5 @@ def test_keymaster_bootstrap_detection(registry_file):
     km = ig.keymaster_bootstrap_at(demo)
     assert km["available"] is True
     assert km["project_slug"] == "demo-app"
+    assert "client_id" not in km
     assert "client_secret" not in km

@@ -12,6 +12,7 @@ from mcp.server.fastmcp import FastMCP
 
 from ga4_provision_mcp import admin as ga_admin
 from ga4_provision_mcp import integrations as ga_integrations
+from ga4_provision_mcp import inventory as ga_inventory
 from ga4_provision_mcp import nextjs as ga_nextjs
 from ga4_provision_mcp.snippets import inject_gtag_into_html, render_gtag_snippet
 
@@ -252,9 +253,15 @@ def provision_project_ga4_setup(
     timezone: str = "Europe/London",
     inject_html_path: str = "",
     registry_slug: str = "",
+    scaffold_nextjs_web_root: str = "",
+    nextjs_layout_relative: str = "",
+    nextjs_dry_run: bool = False,
+    tracking_mode: str = "none",
 ) -> Dict[str, Any]:
     """
-    End-to-end: create property + web stream, optionally save .ga4.config.json and inject gtag.
+    End-to-end: create property + web stream, optionally save .ga4.config.json and wire tracking.
+    tracking_mode: none | html | nextjs | auto (auto uses detect_tracking_stack when project_dir set).
+    inject_html_path used for html mode (or explicit path). scaffold_nextjs_web_root for nextjs mode.
     If registry_slug is set and GA4_LAUNCHER_REGISTRY_* env is configured, syncs analytics.ga4 metadata.
     """
     prop = provision_ga4_property(account_id, project_name, timezone=timezone)
@@ -284,8 +291,59 @@ def provision_project_ga4_setup(
             stream_name=stream_name,
         )
         result["config_file"] = saved
-    if inject_html_path.strip() and measurement_id:
+    mode = (tracking_mode or "none").strip().lower()
+    if mode == "auto" and project_dir.strip():
+        stack = ga_inventory.detect_tracking_stack(project_dir)
+        if stack.get("ok"):
+            mode = stack.get("recommended_mode", "none")
+        else:
+            mode = "none"
+
+    if mode == "html" and measurement_id:
+        html_path = inject_html_path.strip()
+        if not html_path and project_dir.strip():
+            stack = ga_inventory.detect_tracking_stack(project_dir)
+            paths = (stack.get("html_paths") or []) if stack.get("ok") else []
+            html_path = paths[0] if paths else ""
+        if html_path:
+            result["injection"] = inject_ga4_gtag_into_file(html_path, measurement_id)
+        else:
+            result["injection"] = {"ok": False, "error": "html mode: no inject_html_path or index.html found"}
+    elif inject_html_path.strip() and measurement_id:
         result["injection"] = inject_ga4_gtag_into_file(inject_html_path, measurement_id)
+
+    if mode == "nextjs" and measurement_id:
+        web_root = scaffold_nextjs_web_root.strip()
+        if not web_root and project_dir.strip():
+            stack = ga_inventory.detect_tracking_stack(project_dir)
+            roots = (stack.get("suggested_web_roots") or []) if stack.get("ok") else []
+            web_root = roots[0] if roots else ""
+        if web_root:
+            layout_rel = nextjs_layout_relative.strip()
+            if not layout_rel:
+                stack = ga_inventory.detect_tracking_stack(project_dir or web_root)
+                layouts = (stack.get("layout_paths") or []) if stack.get("ok") else []
+                if layouts:
+                    layout_rel = str(
+                        Path(layouts[0]).relative_to(Path(web_root).resolve())
+                    ).replace("\\", "/")
+                else:
+                    layout_rel = "src/app/layout.tsx"
+            try:
+                result["nextjs_scaffold"] = ga_nextjs.scaffold_nextjs_ga4(
+                    web_root,
+                    measurement_id,
+                    layout_relative=layout_rel,
+                    dry_run=nextjs_dry_run,
+                )
+            except ValueError as exc:
+                result["nextjs_scaffold"] = {"ok": False, "error": str(exc)}
+        else:
+            result["nextjs_scaffold"] = {
+                "ok": False,
+                "error": "nextjs mode: set scaffold_nextjs_web_root or project_dir with package.json",
+            }
+
     if registry_slug.strip() and measurement_id:
         result["registry_sync"] = ga_integrations.sync_ga4_to_launcher_registry(
             registry_slug.strip(),
@@ -295,6 +353,58 @@ def provision_project_ga4_setup(
             stream_name=stream_name,
         )
     return result
+
+
+@mcp.tool()
+def scan_local_ga4_configs(
+    scan_roots: Optional[List[str]] = None,
+    max_depth: int = 4,
+) -> Dict[str, Any]:
+    """Scan filesystem roots (default ~/projects) for `.ga4.config.json` inventory."""
+    return ga_inventory.scan_local_ga4_configs(scan_roots, max_depth=max_depth)
+
+
+@mcp.tool()
+def list_projects_needing_ga4(
+    filter_query: str = "",
+    limit: int = 50,
+    include_partial: bool = True,
+) -> Dict[str, Any]:
+    """Launcher registry projects missing local config and/or registry analytics.ga4 metadata."""
+    return ga_inventory.list_projects_needing_ga4(
+        filter_query=filter_query,
+        limit=limit,
+        include_partial=include_partial,
+    )
+
+
+@mcp.tool()
+def detect_project_tracking_stack(project_dir: str) -> Dict[str, Any]:
+    """Recommend html vs nextjs wiring for a project directory."""
+    return ga_inventory.detect_tracking_stack(project_dir)
+
+
+@mcp.tool()
+def get_analytics_monitoring_companion_guide() -> Dict[str, Any]:
+    """How to pair this provision server with official read-only analytics-mcp for reports."""
+    return {
+        "provision_server": "ga4-provision-mcp (this repo)",
+        "monitoring_server": "analytics-mcp (pipx run analytics-mcp)",
+        "monitoring_scope": "analytics.readonly — run_report, realtime, read property config",
+        "workflow": [
+            "Provision here: property + stream + .ga4.config.json",
+            "Store property_id and measurement_id in repo or launcher registry analytics.ga4",
+            "Ask traffic questions via analytics-mcp using those ids",
+        ],
+        "hermes_example": {
+            "google_analytics": {
+                "command": "pipx",
+                "args": ["run", "analytics-mcp"],
+                "env": {"CLOUDSDK_CORE_PROJECT": "your-gcp-project-id"},
+            }
+        },
+        "do_not": "Implement Data API reporting in ga4-provision-mcp (see ADR 0001).",
+    }
 
 
 @mcp.tool()

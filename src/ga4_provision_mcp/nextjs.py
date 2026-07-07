@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import os
 from pathlib import Path
 from typing import Any, Dict, Literal, Tuple
 
@@ -142,13 +143,14 @@ def _import_path_for_layout(layout_path: Path, component_path: Path) -> str:
     layout_path = layout_path.resolve()
     component_path = component_path.resolve()
     if (
-        "src" in layout_path.parts
-        and layout_path.parent.name == "app"
+        layout_path.parent.name == "app"
+        and layout_path.parent.parent.name == "src"
         and component_path.parent.name == "components"
     ):
         return "@/components/GoogleAnalytics"
-    rel = component_path.with_suffix("").relative_to(layout_path.parent)
-    return str(rel).replace("\\", "/")
+    rel = os.path.relpath(component_path.with_suffix(""), layout_path.parent)
+    rel = rel.replace("\\", "/")
+    return rel if rel.startswith(".") else f"./{rel}"
 
 
 def inject_google_analytics_into_layout(
@@ -167,7 +169,10 @@ def inject_google_analytics_into_layout(
     action_parts: list[str] = []
 
     import_line = f'import {{ GoogleAnalytics }} from "{import_path}";'
-    if import_line not in updated and "GoogleAnalytics" not in updated:
+    has_ga_import = bool(
+        re.search(r'import\s+\{\s*GoogleAnalytics\s*\}\s+from\s+[\'"][^\'"]+[\'"];?', updated)
+    )
+    if not has_ga_import:
         last_import = None
         for match in re.finditer(r'^import .+;$', updated, re.MULTILINE):
             last_import = match
@@ -183,7 +188,7 @@ def inject_google_analytics_into_layout(
             action_parts.append("prepended_import")
 
     usage_line = "        <GoogleAnalytics />"
-    if "<GoogleAnalytics" not in updated:
+    if not re.search(r"<GoogleAnalytics(?:\s|/|>)", updated):
         if PLACEHOLDER_USAGE in updated:
             updated = updated.replace(PLACEHOLDER_USAGE, usage_line)
             action_parts.append("replaced_usage_placeholder")

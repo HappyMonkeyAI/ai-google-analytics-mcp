@@ -47,12 +47,21 @@ def inject_gtag_into_html(
         old_id = existing.group(1)
         if old_id.upper() == measurement_id.strip().upper():
             return html, "unchanged_same_id"
-        # Replace measurement id in place (minimal diff)
+        # Replace only the detected gtag script/config id, not unrelated GA ids.
+        mid = measurement_id.strip()
+        old_escaped = re.escape(old_id)
         updated = re.sub(
-            r"G-[A-Z0-9]+",
-            measurement_id.strip(),
+            rf"(googletagmanager\.com/gtag/js\?id=){old_escaped}",
+            rf"\1{mid}",
             html,
-            count=0,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        updated = re.sub(
+            rf"((?:gtag|gtag\w*)\(\s*['\"]config['\"]\s*,\s*['\"]){old_escaped}(['\"])",
+            rf"\1{mid}\2",
+            updated,
+            flags=re.IGNORECASE,
         )
         return updated, "updated_existing_gtag"
 
