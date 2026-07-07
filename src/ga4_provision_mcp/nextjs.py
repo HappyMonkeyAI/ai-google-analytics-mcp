@@ -188,7 +188,7 @@ def inject_google_analytics_into_layout(
             action_parts.append("prepended_import")
 
     usage_line = "        <GoogleAnalytics />"
-    if not re.search(r"<GoogleAnalytics(?:[\s/>])", updated):
+    if not re.search(r"<GoogleAnalytics[\s/>]", updated):
         if PLACEHOLDER_USAGE in updated:
             updated = updated.replace(PLACEHOLDER_USAGE, usage_line)
             action_parts.append("replaced_usage_placeholder")
