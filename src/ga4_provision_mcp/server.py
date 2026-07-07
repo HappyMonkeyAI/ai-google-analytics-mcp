@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp import FastMCP
 
 from ga4_provision_mcp import admin as ga_admin
+from ga4_provision_mcp import nextjs as ga_nextjs
 from ga4_provision_mcp.snippets import inject_gtag_into_html, render_gtag_snippet
 
 mcp = FastMCP(
@@ -149,6 +150,68 @@ def inject_ga4_gtag_into_file(
         if updated != original:
             path.write_text(updated, encoding="utf-8")
         return {"ok": True, "path": str(path), "action": action, "written": updated != original}
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def render_ga4_nextjs_component(
+    measurement_id: str,
+    mode: str = "env",
+    consent_gated: bool = False,
+) -> Dict[str, Any]:
+    """
+    Return a Next.js client component (next/script) for GA4.
+    mode: env (read NEXT_PUBLIC_GA_MEASUREMENT_ID) or inline (embed id).
+    consent_gated: only load gtag after localStorage cookie consent is accepted.
+    """
+    if mode not in ("env", "inline"):
+        return {"ok": False, "error": "mode must be 'env' or 'inline'"}
+    try:
+        source = ga_nextjs.render_nextjs_ga4_component(
+            measurement_id,
+            mode=mode,  # type: ignore[arg-type]
+            consent_gated=consent_gated,
+        )
+        return {
+            "ok": True,
+            "measurement_id": measurement_id.strip(),
+            "mode": mode,
+            "consent_gated": consent_gated,
+            "suggested_path": "src/components/GoogleAnalytics.tsx",
+            "env_line": ga_nextjs.render_nextjs_env_line(measurement_id),
+            "source": source,
+        }
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def scaffold_ga4_nextjs_tracking(
+    web_root: str,
+    measurement_id: str,
+    layout_relative: str = "src/app/layout.tsx",
+    mode: str = "env",
+    consent_gated: bool = False,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """
+    Scaffold GA4 for a Next.js app: write GoogleAnalytics.tsx, wire layout.tsx,
+    and set NEXT_PUBLIC_GA_MEASUREMENT_ID in .env.local (when mode=env).
+    web_root must be the Next.js package root (directory containing package.json).
+    """
+    if mode not in ("env", "inline"):
+        return {"ok": False, "error": "mode must be 'env' or 'inline'"}
+    try:
+        result = ga_nextjs.scaffold_nextjs_ga4(
+            web_root,
+            measurement_id,
+            layout_relative=layout_relative,
+            mode=mode,  # type: ignore[arg-type]
+            consent_gated=consent_gated,
+            dry_run=dry_run,
+        )
+        return {"ok": True, **result}
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
 

@@ -14,6 +14,8 @@ For **reporting and monitoring**, use Google's official read-only [`analytics-mc
 | `create_web_data_stream` | Create web stream → `G-XXXXXXXX` |
 | `render_ga4_gtag_snippet` | HTML snippet for a measurement ID |
 | `inject_ga4_gtag_into_file` | Patch a local HTML/layout file |
+| `render_ga4_nextjs_component` | Next.js `GoogleAnalytics.tsx` source (env or inline id) |
+| `scaffold_ga4_nextjs_tracking` | Write component, wire `layout.tsx`, set `.env.local` |
 | `save_project_ga4_config` | Write `.ga4.config.json` in a project dir |
 | `provision_project_ga4_setup` | Property + stream + optional config/inject |
 
