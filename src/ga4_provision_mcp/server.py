@@ -244,6 +244,90 @@ def save_project_ga4_config(
     return {"ok": True, "path": str(out), "config": payload}
 
 
+def _normalize_tracking_mode(tracking_mode: str, project_dir: str) -> str:
+    mode = (tracking_mode or "none").strip().lower()
+    if mode != "auto" or not project_dir.strip():
+        return mode
+    stack = ga_inventory.detect_tracking_stack(project_dir)
+    if stack.get("ok"):
+        return stack.get("recommended_mode", "none")
+    return "none"
+
+
+def _resolve_html_path(project_dir: str, inject_html_path: str) -> str:
+    html_path = inject_html_path.strip()
+    if html_path or not project_dir.strip():
+        return html_path
+    stack = ga_inventory.detect_tracking_stack(project_dir)
+    paths = (stack.get("html_paths") or []) if stack.get("ok") else []
+    return paths[0] if paths else ""
+
+
+def _resolve_nextjs_web_root(project_dir: str, scaffold_nextjs_web_root: str) -> str:
+    web_root = scaffold_nextjs_web_root.strip()
+    if web_root or not project_dir.strip():
+        return web_root
+    stack = ga_inventory.detect_tracking_stack(project_dir)
+    roots = (stack.get("suggested_web_roots") or []) if stack.get("ok") else []
+    return roots[0] if roots else ""
+
+
+def _resolve_nextjs_layout_relative(project_dir: str, web_root: str, nextjs_layout_relative: str) -> str:
+    layout_rel = nextjs_layout_relative.strip()
+    if layout_rel:
+        return layout_rel
+    stack = ga_inventory.detect_tracking_stack(project_dir or web_root)
+    layouts = (stack.get("layout_paths") or []) if stack.get("ok") else []
+    if layouts:
+        try:
+            return str(Path(layouts[0]).relative_to(Path(web_root).resolve())).replace("\\", "/")
+        except ValueError:
+            pass
+    return "src/app/layout.tsx"
+
+
+def _apply_html_tracking(
+    result: Dict[str, Any],
+    *,
+    project_dir: str,
+    inject_html_path: str,
+    measurement_id: str,
+) -> None:
+    html_path = _resolve_html_path(project_dir, inject_html_path)
+    if html_path:
+        result["injection"] = inject_ga4_gtag_into_file(html_path, measurement_id)
+    else:
+        result["injection"] = {"ok": False, "error": "html mode: no inject_html_path or index.html found"}
+
+
+def _apply_nextjs_tracking(
+    result: Dict[str, Any],
+    *,
+    project_dir: str,
+    scaffold_nextjs_web_root: str,
+    nextjs_layout_relative: str,
+    measurement_id: str,
+    nextjs_dry_run: bool,
+) -> None:
+    web_root = _resolve_nextjs_web_root(project_dir, scaffold_nextjs_web_root)
+    if not web_root:
+        result["nextjs_scaffold"] = {
+            "ok": False,
+            "error": "nextjs mode: set scaffold_nextjs_web_root or project_dir with package.json",
+        }
+        return
+    layout_rel = _resolve_nextjs_layout_relative(project_dir, web_root, nextjs_layout_relative)
+    try:
+        result["nextjs_scaffold"] = ga_nextjs.scaffold_nextjs_ga4(
+            web_root,
+            measurement_id,
+            layout_relative=layout_rel,
+            dry_run=nextjs_dry_run,
+        )
+    except ValueError as exc:
+        result["nextjs_scaffold"] = {"ok": False, "error": str(exc)}
+
+
 @mcp.tool()
 def provision_project_ga4_setup(
     account_id: str,
@@ -291,58 +375,27 @@ def provision_project_ga4_setup(
             stream_name=stream_name,
         )
         result["config_file"] = saved
-    mode = (tracking_mode or "none").strip().lower()
-    if mode == "auto" and project_dir.strip():
-        stack = ga_inventory.detect_tracking_stack(project_dir)
-        if stack.get("ok"):
-            mode = stack.get("recommended_mode", "none")
-        else:
-            mode = "none"
+    mode = _normalize_tracking_mode(tracking_mode, project_dir)
 
     if mode == "html" and measurement_id:
-        html_path = inject_html_path.strip()
-        if not html_path and project_dir.strip():
-            stack = ga_inventory.detect_tracking_stack(project_dir)
-            paths = (stack.get("html_paths") or []) if stack.get("ok") else []
-            html_path = paths[0] if paths else ""
-        if html_path:
-            result["injection"] = inject_ga4_gtag_into_file(html_path, measurement_id)
-        else:
-            result["injection"] = {"ok": False, "error": "html mode: no inject_html_path or index.html found"}
+        _apply_html_tracking(
+            result,
+            project_dir=project_dir,
+            inject_html_path=inject_html_path,
+            measurement_id=measurement_id,
+        )
     elif inject_html_path.strip() and measurement_id:
         result["injection"] = inject_ga4_gtag_into_file(inject_html_path, measurement_id)
 
     if mode == "nextjs" and measurement_id:
-        web_root = scaffold_nextjs_web_root.strip()
-        if not web_root and project_dir.strip():
-            stack = ga_inventory.detect_tracking_stack(project_dir)
-            roots = (stack.get("suggested_web_roots") or []) if stack.get("ok") else []
-            web_root = roots[0] if roots else ""
-        if web_root:
-            layout_rel = nextjs_layout_relative.strip()
-            if not layout_rel:
-                stack = ga_inventory.detect_tracking_stack(project_dir or web_root)
-                layouts = (stack.get("layout_paths") or []) if stack.get("ok") else []
-                if layouts:
-                    layout_rel = str(
-                        Path(layouts[0]).relative_to(Path(web_root).resolve())
-                    ).replace("\\", "/")
-                else:
-                    layout_rel = "src/app/layout.tsx"
-            try:
-                result["nextjs_scaffold"] = ga_nextjs.scaffold_nextjs_ga4(
-                    web_root,
-                    measurement_id,
-                    layout_relative=layout_rel,
-                    dry_run=nextjs_dry_run,
-                )
-            except ValueError as exc:
-                result["nextjs_scaffold"] = {"ok": False, "error": str(exc)}
-        else:
-            result["nextjs_scaffold"] = {
-                "ok": False,
-                "error": "nextjs mode: set scaffold_nextjs_web_root or project_dir with package.json",
-            }
+        _apply_nextjs_tracking(
+            result,
+            project_dir=project_dir,
+            scaffold_nextjs_web_root=scaffold_nextjs_web_root,
+            nextjs_layout_relative=nextjs_layout_relative,
+            measurement_id=measurement_id,
+            nextjs_dry_run=nextjs_dry_run,
+        )
 
     if registry_slug.strip() and measurement_id:
         result["registry_sync"] = ga_integrations.sync_ga4_to_launcher_registry(

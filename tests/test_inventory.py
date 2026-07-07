@@ -46,7 +46,7 @@ def test_detect_html_stack(tmp_path):
 
 
 def test_list_projects_needing_ga4(registry_style, monkeypatch):
-    reg, demo, other = registry_style
+    reg, demo, _ = registry_style
     monkeypatch.setenv("GA4_LAUNCHER_REGISTRY_JSON", str(reg))
     (demo / ".ga4.config.json").write_text(
         json.dumps({"measurement_id": "G-OK1234"}), encoding="utf-8"
